@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"strings"
+
 	"github.com/codegangsta/cli"
 	"github.com/garyburd/redigo/redis"
 )
@@ -52,12 +54,12 @@ func main() {
 		cli.StringFlag{
 			Name:  "source, s",
 			Usage: "The redis server to pull data from",
-			Value: "127.0.0.1:6379",
+			Value: "127.0.0.1:6379@password",
 		},
 		cli.StringFlag{
 			Name:  "dest, d",
 			Usage: "The destination redis server",
-			Value: "127.0.0.1:6379",
+			Value: "127.0.0.1:6379@password",
 		},
 		cli.IntFlag{
 			Name:  "workers, w",
@@ -95,20 +97,36 @@ func ParseConfig(c *cli.Context) {
 }
 
 func sourceConnection(source string) redis.Conn {
+	s := strings.SplitN(source, "@", 2)
 	// attempt to connect to source server
-	sourceConn, err := redis.Dial("tcp", source)
+	sourceConn, err := redis.Dial("tcp", s[0])
 	if err != nil {
 		panic(err)
+	}
+
+	if len(s) > 1 {
+		_, err := sourceConn.Do("AUTH", s[1])
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	return sourceConn
 }
 
 func destConnection(dest string) redis.Conn {
+	s := strings.SplitN(dest, "@", 2)
 	// attempt to connect to source server
-	destConn, err := redis.Dial("tcp", dest)
+	destConn, err := redis.Dial("tcp", s[0])
 	if err != nil {
 		panic(err)
+	}
+
+	if len(s) > 1 {
+		_, err := destConn.Do("AUTH", s[1])
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	return destConn
